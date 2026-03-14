@@ -238,13 +238,6 @@ func main() {
 	// Aucun intent bot nécessaire — on envoie uniquement des mises à jour de présence
 	dg.Identify.Intents = 0
 
-	if err := dg.Open(); err != nil {
-		log.Fatalf("❌  Connexion au Gateway Discord: %v", err)
-	}
-	defer dg.Close()
-
-	log.Printf("✅  Connecté à Discord — mise à jour du status météo toutes les %v (ville: %s)", interval, city)
-
 	doUpdate := func() {
 		weather, err := fetchWeather(apiKey, city)
 		if err != nil {
@@ -261,8 +254,22 @@ func main() {
 		log.Printf("🔄  [%s | %.0f°C | vent %.1f m/s] → %s", weather.Name, weather.Main.Temp, weather.Wind.Speed, statusText)
 	}
 
-	// Première mise à jour immédiate au démarrage
-	doUpdate()
+	// Déclencher une mise à jour dès que le gateway envoie READY, et à chaque reconnexion.
+	// Le status de présence est réinitialisé par Discord à chaque reconnexion WebSocket,
+	// il est donc nécessaire de le renvoyer à chaque fois.
+	dg.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		log.Printf("✅  Gateway READY — connecté en tant que %s (%s)", r.User.Username, r.User.ID)
+		// Petit délai pour laisser la session se stabiliser avant d'envoyer l'opcode 3
+		time.Sleep(500 * time.Millisecond)
+		doUpdate()
+	})
+
+	if err := dg.Open(); err != nil {
+		log.Fatalf("❌  Connexion au Gateway Discord: %v", err)
+	}
+	defer dg.Close()
+
+	log.Printf("⏳  En attente du Gateway READY... (intervalle de mise à jour: %v, ville: %s)", interval, city)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
