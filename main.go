@@ -125,6 +125,18 @@ var messages = map[string][]string{
 	},
 }
 
+// nightMessages est affiché entre 22h et 6h, indépendamment de la météo.
+var nightMessages = []string{
+	"💤 AFK — entered sleep mode, back at 06:00",
+	"😴 Sleeping — process suspended, no ETA on resume",
+	"🌙 ZZZ — systemctl suspend brain.service",
+	"💤 Offline — kubectl cordon me until morning",
+	"🌙 Sleeping — Hearthstone queue: bed, priority: HIGH",
+	"😴 In dreams — raiding Icecrown on a different server",
+	"💤 Night mode — do not disturb, or face 1d20 grumpiness",
+	"🌙 Sleep.exe — estimated wake time: 06:00, no SLA guaranteed",
+}
+
 func randomStatus(key string) string {
 	msgs, ok := messages[key]
 	if !ok || len(msgs) == 0 {
@@ -228,7 +240,16 @@ func conditionKey(wmoCode, temp int, wind float64) string {
 	return "unknown"
 }
 
+// isNight retourne true entre 22h00 et 05h59 (heure locale du serveur).
+func isNight() bool {
+	h := time.Now().Hour()
+	return h >= 22 || h < 6
+}
+
 func buildStatus(w *WeatherResponse) string {
+	if isNight() {
+		return nightMessages[rand.Intn(len(nightMessages))]
+	}
 	temp := int(w.Current.Temperature)
 	wind := w.Current.WindSpeed
 	key := conditionKey(w.Current.WeatherCode, temp, wind)

@@ -4,6 +4,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      - TZ=America/Toronto
     logging:
       driver: "json-file"
       options:
