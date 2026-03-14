@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -12,8 +14,6 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 // WeatherResponse représente la réponse de l'API OpenWeatherMap
@@ -187,22 +187,49 @@ func buildStatus(w *WeatherResponse) string {
 	return randomStatus("unknown")
 }
 
-// setPersonalStatus met à jour le statut personnalisé du compte Discord via Gateway opcode 3.
+// customStatusPayload est le corps de la requête PATCH /users/@me/settings.
+type customStatusPayload struct {
+	CustomStatus struct {
+		Text      string  `json:"text"`
+		EmojiID   *string `json:"emoji_id"`
+		EmojiName *string `json:"emoji_name"`
+		ExpiresAt *string `json:"expires_at"`
+	} `json:"custom_status"`
+}
+
+// setPersonalStatus met à jour le custom status du compte Discord via l'API REST.
 //
 // ⚠️  ATTENTION : utiliser un token utilisateur dans un script automatisé
 // est contraire aux Conditions Générales d'Utilisation de Discord.
 // Vous l'utilisez sous votre propre responsabilité.
-func setPersonalStatus(dg *discordgo.Session, statusText string) error {
-	return dg.UpdateStatusComplex(discordgo.UpdateStatusData{
-		Status: "online",
-		Activities: []*discordgo.Activity{
-			{
-				Name:  "Custom Status",
-				Type:  discordgo.ActivityTypeCustom,
-				State: statusText,
-			},
-		},
-	})
+func setPersonalStatus(token, statusText string) error {
+	var payload customStatusPayload
+	payload.CustomStatus.Text = statusText
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("sérialisation payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, "https://discord.com/api/v9/users/@me/settings", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("création requête: %w", err)
+	}
+	req.Header.Set("Authorization", token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("envoi requête Discord: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API Discord: HTTP %d — %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
 }
 
 func main() {
@@ -229,14 +256,7 @@ func main() {
 		}
 	}
 
-	// Connexion Discord avec token utilisateur (pas de préfixe "Bot ")
-	dg, err := discordgo.New(token)
-	if err != nil {
-		log.Fatalf("❌  Création de la session Discord: %v", err)
-	}
-
-	// Aucun intent bot nécessaire — on envoie uniquement des mises à jour de présence
-	dg.Identify.Intents = 0
+	log.Printf("✅  Démarré — mise à jour du custom status toutes les %v (ville: %s)", interval, city)
 
 	doUpdate := func() {
 		weather, err := fetchWeather(apiKey, city)
@@ -246,7 +266,7 @@ func main() {
 		}
 
 		statusText := buildStatus(weather)
-		if err := setPersonalStatus(dg, statusText); err != nil {
+		if err := setPersonalStatus(token, statusText); err != nil {
 			log.Printf("⚠️   Mise à jour status Discord: %v", err)
 			return
 		}
@@ -254,22 +274,8 @@ func main() {
 		log.Printf("🔄  [%s | %.0f°C | vent %.1f m/s] → %s", weather.Name, weather.Main.Temp, weather.Wind.Speed, statusText)
 	}
 
-	// Déclencher une mise à jour dès que le gateway envoie READY, et à chaque reconnexion.
-	// Le status de présence est réinitialisé par Discord à chaque reconnexion WebSocket,
-	// il est donc nécessaire de le renvoyer à chaque fois.
-	dg.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Printf("✅  Gateway READY — connecté en tant que %s (%s)", r.User.Username, r.User.ID)
-		// Petit délai pour laisser la session se stabiliser avant d'envoyer l'opcode 3
-		time.Sleep(500 * time.Millisecond)
-		doUpdate()
-	})
-
-	if err := dg.Open(); err != nil {
-		log.Fatalf("❌  Connexion au Gateway Discord: %v", err)
-	}
-	defer dg.Close()
-
-	log.Printf("⏳  En attente du Gateway READY... (intervalle de mise à jour: %v, ville: %s)", interval, city)
+	// Première mise à jour immédiate au démarrage
+	doUpdate()
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
