@@ -33,61 +33,72 @@ type WeatherResponse struct {
 	Name string `json:"name"`
 }
 
-// messages contient les status humoristiques par condition météo
-// Les entrées %d reçoivent la température en degrés Celsius
+// messages contains humorous status messages per weather condition
+// %d entries receive the temperature in degrees Celsius
 var messages = map[string][]string{
 	"thunderstorm": {
-		"⛈️ Orage en cours — backup lancé, panique sous contrôle",
-		"⛈️ Éclairs à la fenêtre — 9000 FPS détectés",
-		"⛈️ DEFCON météo activé — todo: survivre, café inclus",
+		"⛈️ Thunderstorm — weather pod stuck in CrashLoopBackOff",
+		"⛈️ Lightning outside — Thunder King has respawned, this is his raid now",
+		"⛈️ Thunder — someone forgot to kubectl rollout restart the sky",
+		"⛈️ Thunderstorm — just Zeus rebooting his bare-metal cluster again",
 	},
 	"drizzle": {
-		"🌦️ Bruine — le ciel bug en mode demi-mesure",
-		"🌦️ Crachin activé — humidité 95%, motivation 4%",
+		"🌦️ Drizzle — sky is on a rolling update, slight leakage expected",
+		"🌦️ Light rain — 95% humidity, feels like Stormwind on a Monday",
 	},
 	"rain": {
-		"🌧️ Pluie — café chaud, dark theme, c'est bon",
-		"🌧️ Il pleut — télétravail justifié à 100%",
-		"🌧️ Pluie détectée — rm -rf /sortir-dehors",
+		"🌧️ Rain — rm -rf /going-outside --force",
+		"🌧️ It's raining — the cloud provider is finally leaking something useful",
+		"🌧️ Rain — AFK farming indoors like a proper Hearthstone enjoyer",
+		"🌧️ It's raining — docker run --rm coffee:latest --volume desk",
 	},
 	"heavy_rain": {
-		"🌧️ Déluge — Noé était prévoyant, pas moi",
-		"🌧️ Pluie torrentielle — stack overflow dans les rues",
+		"🌧️ Heavy rain — kubectl drain outside --ignore-daemonsets",
+		"🌧️ Downpour — Doomhammer is literally raining on my parade",
+		"🌧️ Downpour — even the Murlocs are sheltering, Mrgglll",
 	},
 	"snow": {
-		"❄️ Neige — winter.exe has started /nosuspend",
-		"❄️ Il neige — refroidissement naturel du clavier activé",
-		"❄️ Neige — mon tableau Kanban est aussi blanc que dehors",
+		"❄️ Snow — Icecrown Citadel has spawned in my street",
+		"❄️ Snowing — kubectl taint nodes/* weather=blizzard:NoSchedule",
+		"❄️ Snow — The Lich King sends his regards, plus 5 cm of powder",
+		"❄️ Snowing — apt freeze universe, confirm? [y/N]",
 	},
 	"clear": {
-		"☀️ Grand soleil — git push origin bonheur",
-		"☀️ Ciel dégagé — les UV brûlent comme ma prod",
-		"☀️ Beau temps — trop beau pour débugger, trop curieux pour partir",
+		"☀️ Sunny — git push origin good-vibes",
+		"☀️ Clear sky — UV rays hit harder than a /who Orgrimmar at peak hours",
+		"☀️ Nice weather — sky has been in Running state all morning",
+		"☀️ Sunny — sudo chmod 777 /patio, finally",
 	},
 	"clear_hot": {
-		"🥵 %d°C — dev et CPU en surchauffe simultanée",
-		"🥵 %d°C — sudo apt install clim, erreur: paquet introuvable",
+		"🥵 %d°C — thermal throttling IRL, like a node with no CPU limits",
+		"🥵 %d°C — sudo apt install ac-unit — E: Package not found",
+		"🥵 %d°C — even the Firelands think it's a bit much",
 	},
 	"clear_cold": {
-		"🥶 %d°C — git stash /mains-trop-froides",
-		"🥶 %d°C — overclocking vestimentaire activé",
+		"🥶 %d°C — kubectl get warmth — No resources found",
+		"🥶 %d°C — Frostmourne hungers... and so do I, haven't left the bed",
+		"🥶 %d°C — systemctl status heating — ● dead (failed)",
 	},
 	"clouds": {
-		"🌤️ Nuageux — le ciel compile, patientez...",
-		"☁️ Couvert — pending PR: patch de soleil, review en cours",
-		"🌥️ Nuages — météo en mode lazy loading",
+		"☁️ Cloudy — sky is migrating to a multi-cloud architecture",
+		"🌥️ Overcast — sun is in Pending state, no available nodes",
+		"☁️ Cloudy — even Sylvanas doesn't know if it'll clear up",
+		"🌤️ Cloudy — Cloudflare put the sun behind a WAF again",
 	},
 	"fog": {
-		"🌫️ Brouillard — visibilité nulle, comme ma roadmap Q4",
-		"🌫️ Brume — sudo clear n'a pas marché dehors non plus",
+		"🌫️ Foggy — zero visibility, just like my Kubernetes docs",
+		"🌫️ Misty — The Mists of Pandaria have arrived",
+		"🌫️ Foggy — dmesg: WARNING: zero visibility ahead, check your lore",
 	},
 	"wind": {
-		"💨 Vent fort — cheveux en mode spaghetti code",
-		"💨 Rafales — git stash /coiffure",
+		"💨 Windy — gusts detected, replicaset /hairstyle scaled down to 0",
+		"💨 Wind — Sylvanas has set things on fire for less",
+		"💨 Gusts — the wind has been DDoSing my hood since this morning",
 	},
 	"unknown": {
-		"🌡️ Météo indéfinie — 404 weather not found",
-		"🤔 Undefined behavior atmosphérique détecté",
+		"🌡️ Unknown weather — 404 Weather Not Found, lore is unclear",
+		"🤔 Undefined atmospheric behavior — kubectl describe sky timed out",
+		"❓ Weather state unknown — like the release date of the next WoW patch",
 	},
 }
 
