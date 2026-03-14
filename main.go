@@ -16,21 +16,25 @@ import (
 	"time"
 )
 
-// WeatherResponse représente la réponse de l'API OpenWeatherMap
+// GeoResponse est la réponse de l'API de géocodage Open-Meteo.
+type GeoResponse struct {
+	Results []struct {
+		Latitude  float64 `json:"latitude"`
+		Longitude float64 `json:"longitude"`
+		Name      string  `json:"name"`
+	} `json:"results"`
+}
+
+// WeatherResponse est la réponse de l'API météo Open-Meteo.
 type WeatherResponse struct {
-	Weather []struct {
-		ID          int    `json:"id"`
-		Main        string `json:"main"`
-		Description string `json:"description"`
-	} `json:"weather"`
-	Main struct {
-		Temp      float64 `json:"temp"`
-		FeelsLike float64 `json:"feels_like"`
-	} `json:"main"`
-	Wind struct {
-		Speed float64 `json:"speed"`
-	} `json:"wind"`
-	Name string `json:"name"`
+	Current struct {
+		Temperature float64 `json:"temperature_2m"`
+		Humidity    int     `json:"relative_humidity_2m"`
+		WindSpeed   float64 `json:"wind_speed_10m"`
+		WeatherCode int     `json:"weather_code"`
+		Visibility  float64 `json:"visibility"`
+	} `json:"current"`
+	CityName string // rempli après le géocodage
 }
 
 // messages contains humorous status messages per weather condition
@@ -112,47 +116,61 @@ func randomStatus(key string) string {
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
-func fetchWeather(apiKey, city string) (*WeatherResponse, error) {
+// geocodeCity résoud un nom de ville en coordonnées via Open-Meteo.
+func geocodeCity(city string) (lat, lon float64, name string, err error) {
 	endpoint := fmt.Sprintf(
-		"https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric&lang=fr",
-		url.QueryEscape(city), apiKey,
+		"https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=fr",
+		url.QueryEscape(city),
 	)
-
-	resp, err := httpClient.Get(endpoint) //nolint:noctx
+	resp, err := httpClient.Get(endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("requête météo échouée: %w", err)
+		return 0, 0, "", fmt.Errorf("géocodage: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var geo GeoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&geo); err != nil {
+		return 0, 0, "", fmt.Errorf("décodage géocodage: %w", err)
+	}
+	if len(geo.Results) == 0 {
+		return 0, 0, "", fmt.Errorf("ville introuvable: %q", city)
+	}
+	r := geo.Results[0]
+	return r.Latitude, r.Longitude, r.Name, nil
+}
+
+// fetchWeather récupère la météo actuelle via Open-Meteo (pas de clé API requise).
+func fetchWeather(lat, lon float64, cityName string) (*WeatherResponse, error) {
+	endpoint := fmt.Sprintf(
+		"https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f"+
+			"&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,visibility"+
+			"&wind_speed_unit=ms",
+		lat, lon,
+	)
+	resp, err := httpClient.Get(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("requête météo: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API météo: HTTP %d pour la ville %q", resp.StatusCode, city)
+		return nil, fmt.Errorf("API météo: HTTP %d", resp.StatusCode)
 	}
 
 	var weather WeatherResponse
 	if err := json.NewDecoder(resp.Body).Decode(&weather); err != nil {
 		return nil, fmt.Errorf("décodage météo: %w", err)
 	}
-
+	weather.CityName = cityName
 	return &weather, nil
 }
 
-// conditionKey convertit un code OWM en clé de message.
-func conditionKey(code, temp int, wind float64) string {
+// conditionKey convertit un code météo WMO (Open-Meteo) en clé de message.
+// Référence : https://open-meteo.com/en/docs#weathervariables
+func conditionKey(wmoCode, temp int, wind float64) string {
 	switch {
-	case code >= 200 && code < 300:
-		return "thunderstorm"
-	case code >= 300 && code < 400:
-		return "drizzle"
-	case code >= 500 && code < 600:
-		if code >= 502 {
-			return "heavy_rain"
-		}
-		return "rain"
-	case code >= 600 && code < 700:
-		return "snow"
-	case code >= 700 && code < 800:
-		return "fog"
-	case code == 800:
+	case wmoCode == 0 || wmoCode == 1:
+		// Ciel dégagé / principalement dégagé
 		if temp > 35 {
 			return "clear_hot"
 		}
@@ -163,53 +181,42 @@ func conditionKey(code, temp int, wind float64) string {
 			return "wind"
 		}
 		return "clear"
-	case code >= 801 && code < 900:
+	case wmoCode == 2 || wmoCode == 3:
+		// Partiellement / complètement nuageux
 		if wind > 10 {
 			return "wind"
 		}
 		return "clouds"
+	case wmoCode == 45 || wmoCode == 48:
+		// Brouillard
+		return "fog"
+	case wmoCode >= 51 && wmoCode <= 57:
+		// Bruine (légère, modérée, dense, verglassante)
+		return "drizzle"
+	case wmoCode == 61 || wmoCode == 63 || wmoCode == 66 || wmoCode == 80 || wmoCode == 81:
+		// Pluie légère à modérée, averse légère
+		return "rain"
+	case wmoCode == 65 || wmoCode == 67 || wmoCode == 82:
+		// Pluie forte, averse violente
+		return "heavy_rain"
+	case wmoCode == 71 || wmoCode == 73 || wmoCode == 75 || wmoCode == 77 || wmoCode == 85 || wmoCode == 86:
+		// Neige (légère, modérée, forte, grains, averses)
+		return "snow"
+	case wmoCode == 95 || wmoCode == 96 || wmoCode == 99:
+		// Orage
+		return "thunderstorm"
 	}
 	return "unknown"
 }
 
-// severity définit l'ordre de priorité : plus la valeur est basse, plus c'est sévère.
-// OWM peut retourner plusieurs conditions simultanées (ex: nuages + neige) ;
-// on affiche toujours la plus sévère.
-var severity = map[string]int{
-	"thunderstorm": 0,
-	"heavy_rain":   1,
-	"snow":         2,
-	"rain":         3,
-	"drizzle":      4,
-	"fog":          5,
-	"wind":         6,
-	"clear_hot":    7,
-	"clear_cold":   8,
-	"clear":        9,
-	"clouds":       10,
-	"unknown":      11,
-}
-
 func buildStatus(w *WeatherResponse) string {
-	if len(w.Weather) == 0 {
-		return randomStatus("unknown")
+	temp := int(w.Current.Temperature)
+	wind := w.Current.WindSpeed
+	key := conditionKey(w.Current.WeatherCode, temp, wind)
+	if key == "clear_hot" || key == "clear_cold" {
+		return fmt.Sprintf(randomStatus(key), temp)
 	}
-
-	temp := int(w.Main.Temp)
-	wind := w.Wind.Speed
-
-	bestKey := "unknown"
-	for _, cond := range w.Weather {
-		key := conditionKey(cond.ID, temp, wind)
-		if severity[key] < severity[bestKey] {
-			bestKey = key
-		}
-	}
-
-	if bestKey == "clear_hot" || bestKey == "clear_cold" {
-		return fmt.Sprintf(randomStatus(bestKey), temp)
-	}
-	return randomStatus(bestKey)
+	return randomStatus(key)
 }
 
 // customStatusPayload est le corps de la requête PATCH /users/@me/settings.
@@ -259,15 +266,11 @@ func setPersonalStatus(token, statusText string) error {
 
 func main() {
 	token := os.Getenv("DISCORD_TOKEN")
-	apiKey := os.Getenv("OPENWEATHER_API_KEY")
 	city := os.Getenv("CITY")
 	intervalStr := os.Getenv("UPDATE_INTERVAL_MINUTES")
 
 	if token == "" {
 		log.Fatal("❌  DISCORD_TOKEN manquant — voir .env.example")
-	}
-	if apiKey == "" {
-		log.Fatal("❌  OPENWEATHER_API_KEY manquant — voir .env.example")
 	}
 	if city == "" {
 		city = "Paris"
@@ -281,10 +284,15 @@ func main() {
 		}
 	}
 
-	log.Printf("✅  Démarré — mise à jour du custom status toutes les %v (ville: %s)", interval, city)
+	// Résolution des coordonnées au démarrage (pas besoin de refaire à chaque cycle)
+	lat, lon, cityName, err := geocodeCity(city)
+	if err != nil {
+		log.Fatalf("❌  Géocodage échoué: %v", err)
+	}
+	log.Printf("✅  Démarré — %s (%.4f, %.4f) — mise à jour toutes les %v", cityName, lat, lon, interval)
 
 	doUpdate := func() {
-		weather, err := fetchWeather(apiKey, city)
+		weather, err := fetchWeather(lat, lon, cityName)
 		if err != nil {
 			log.Printf("⚠️   Erreur météo: %v", err)
 			return
@@ -296,7 +304,8 @@ func main() {
 			return
 		}
 
-		log.Printf("🔄  [%s | %.0f°C | vent %.1f m/s] → %s", weather.Name, weather.Main.Temp, weather.Wind.Speed, statusText)
+		log.Printf("🔄  [%s | %.1f°C | vent %.1f m/s | WMO %d] → %s",
+			weather.CityName, weather.Current.Temperature, weather.Current.WindSpeed, weather.Current.WeatherCode, statusText)
 	}
 
 	// Première mise à jour immédiate au démarrage
