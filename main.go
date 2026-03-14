@@ -136,55 +136,80 @@ func fetchWeather(apiKey, city string) (*WeatherResponse, error) {
 	return &weather, nil
 }
 
+// conditionKey convertit un code OWM en clé de message.
+func conditionKey(code, temp int, wind float64) string {
+	switch {
+	case code >= 200 && code < 300:
+		return "thunderstorm"
+	case code >= 300 && code < 400:
+		return "drizzle"
+	case code >= 500 && code < 600:
+		if code >= 502 {
+			return "heavy_rain"
+		}
+		return "rain"
+	case code >= 600 && code < 700:
+		return "snow"
+	case code >= 700 && code < 800:
+		return "fog"
+	case code == 800:
+		if temp > 35 {
+			return "clear_hot"
+		}
+		if temp < -5 {
+			return "clear_cold"
+		}
+		if wind > 10 {
+			return "wind"
+		}
+		return "clear"
+	case code >= 801 && code < 900:
+		if wind > 10 {
+			return "wind"
+		}
+		return "clouds"
+	}
+	return "unknown"
+}
+
+// severity définit l'ordre de priorité : plus la valeur est basse, plus c'est sévère.
+// OWM peut retourner plusieurs conditions simultanées (ex: nuages + neige) ;
+// on affiche toujours la plus sévère.
+var severity = map[string]int{
+	"thunderstorm": 0,
+	"heavy_rain":   1,
+	"snow":         2,
+	"rain":         3,
+	"drizzle":      4,
+	"fog":          5,
+	"wind":         6,
+	"clear_hot":    7,
+	"clear_cold":   8,
+	"clear":        9,
+	"clouds":       10,
+	"unknown":      11,
+}
+
 func buildStatus(w *WeatherResponse) string {
 	if len(w.Weather) == 0 {
 		return randomStatus("unknown")
 	}
 
-	code := w.Weather[0].ID
 	temp := int(w.Main.Temp)
 	wind := w.Wind.Speed
 
-	switch {
-	case code >= 200 && code < 300:
-		return randomStatus("thunderstorm")
-
-	case code >= 300 && code < 400:
-		return randomStatus("drizzle")
-
-	case code >= 500 && code < 600:
-		if code >= 502 {
-			return randomStatus("heavy_rain")
+	bestKey := "unknown"
+	for _, cond := range w.Weather {
+		key := conditionKey(cond.ID, temp, wind)
+		if severity[key] < severity[bestKey] {
+			bestKey = key
 		}
-		return randomStatus("rain")
-
-	case code >= 600 && code < 700:
-		return randomStatus("snow")
-
-	case code >= 700 && code < 800:
-		return randomStatus("fog")
-
-	case code == 800:
-		// Les extrêmes thermiques priment sur le vent
-		if temp > 35 {
-			return fmt.Sprintf(randomStatus("clear_hot"), temp)
-		}
-		if temp < -5 {
-			return fmt.Sprintf(randomStatus("clear_cold"), temp)
-		}
-		if wind > 10 {
-			return randomStatus("wind")
-		}
-		return randomStatus("clear")
-
-	case code >= 801 && code < 900:
-		if wind > 10 {
-			return randomStatus("wind")
-		}
-		return randomStatus("clouds")
 	}
 
-	return randomStatus("unknown")
+	if bestKey == "clear_hot" || bestKey == "clear_cold" {
+		return fmt.Sprintf(randomStatus(bestKey), temp)
+	}
+	return randomStatus(bestKey)
 }
 
 // customStatusPayload est le corps de la requête PATCH /users/@me/settings.
