@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 )
@@ -134,7 +133,7 @@ var nightMessages = []string{
 	"🌙 Sleeping — Hearthstone queue: bed, priority: HIGH",
 	"😴 In dreams — raiding Icecrown on a different server",
 	"💤 Night mode — do not disturb, or face 1d20 grumpiness",
-	"🌙 Sleep.exe — estimated wake time: 06:00, no SLA guaranteed",
+	"🌙 Sleep.sh — estimated wake time: 06:00, no SLA guaranteed",
 }
 
 func randomStatus(key string) string {
@@ -240,16 +239,7 @@ func conditionKey(wmoCode, temp int, wind float64) string {
 	return "unknown"
 }
 
-// isNight retourne true entre 22h00 et 05h59 (heure locale du serveur).
-func isNight() bool {
-	h := time.Now().Hour()
-	return h >= 22 || h < 6
-}
-
 func buildStatus(w *WeatherResponse) string {
-	if isNight() {
-		return nightMessages[rand.Intn(len(nightMessages))]
-	}
 	temp := int(w.Current.Temperature)
 	wind := w.Current.WindSpeed
 	key := conditionKey(w.Current.WeatherCode, temp, wind)
@@ -307,7 +297,6 @@ func setPersonalStatus(token, statusText string) error {
 func main() {
 	token := os.Getenv("DISCORD_TOKEN")
 	city := os.Getenv("CITY")
-	intervalStr := os.Getenv("UPDATE_INTERVAL_MINUTES")
 
 	if token == "" {
 		log.Fatal("❌  DISCORD_TOKEN manquant — voir .env.example")
@@ -317,24 +306,50 @@ func main() {
 		log.Println("⚠️   CITY non configurée, Paris utilisée par défaut")
 	}
 
-	interval := 15 * time.Minute
-	if intervalStr != "" {
-		if n, err := strconv.Atoi(intervalStr); err == nil && n > 0 {
-			interval = time.Duration(n) * time.Minute
-		}
-	}
-
 	// Résolution des coordonnées au démarrage (pas besoin de refaire à chaque cycle)
 	lat, lon, cityName, err := geocodeCity(city)
 	if err != nil {
 		log.Fatalf("❌  Géocodage échoué: %v", err)
 	}
-	log.Printf("✅  Démarré — %s (%.4f, %.4f) — mise à jour toutes les %v", cityName, lat, lon, interval)
+	log.Printf("✅  Démarré — %s (%.4f, %.4f) — mise à jour horaire (06h–22h)", cityName, lat, lon)
+
+	// lastKey mémorise la dernière condition envoyée à Discord.
+	// Vaut "night" pendant la nuit, ou la clé WMO de jour ("snow", "rain", etc.).
+	// Vide au démarrage pour forcer la première mise à jour.
+	lastKey := ""
 
 	doUpdate := func() {
+		h := time.Now().Hour()
+		night := h >= 22 || h < 6
+
+		if night {
+			if lastKey == "night" {
+				log.Println("🌙  Nuit — status déjà en place, rien à faire")
+				return
+			}
+			statusText := nightMessages[rand.Intn(len(nightMessages))]
+			if err := setPersonalStatus(token, statusText); err != nil {
+				log.Printf("⚠️   Mise à jour status Discord: %v", err)
+				return
+			}
+			lastKey = "night"
+			log.Printf("🌙  [Nuit] → %s", statusText)
+			return
+		}
+
+		// Jour : récupérer la météo et comparer avec la dernière condition connue
 		weather, err := fetchWeather(lat, lon, cityName)
 		if err != nil {
 			log.Printf("⚠️   Erreur météo: %v", err)
+			return
+		}
+
+		temp := int(weather.Current.Temperature)
+		key := conditionKey(weather.Current.WeatherCode, temp, weather.Current.WindSpeed)
+
+		if key == lastKey {
+			log.Printf("⏭️  [%s | %.1f°C | WMO %d] — météo inchangée (%s), skip",
+				weather.CityName, weather.Current.Temperature, weather.Current.WeatherCode, key)
 			return
 		}
 
@@ -344,6 +359,7 @@ func main() {
 			return
 		}
 
+		lastKey = key
 		log.Printf("🔄  [%s | %.1f°C | vent %.1f m/s | WMO %d] → %s",
 			weather.CityName, weather.Current.Temperature, weather.Current.WindSpeed, weather.Current.WeatherCode, statusText)
 	}
@@ -351,7 +367,7 @@ func main() {
 	// Première mise à jour immédiate au démarrage
 	doUpdate()
 
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
 	quit := make(chan os.Signal, 1)
