@@ -47,12 +47,15 @@ var messages = map[string][]string{
 		"⛈️ Thunderstorm — Thor rage quit the raid",
 		"⛈️ Lightning strikes — developers screaming in background",
 		"⛈️ Storm — Zeus applied hotfix to clouds",
+		"⛈️ Thunderstorm — Gotham weather as usual, Batman must be nearby",
+		"⛈️ Lightning — the Bat-Signal is down, power grid overloaded",
 	},
 	"drizzle": {
 		"🌦️ Drizzle — sky is on a rolling update, slight leakage expected",
 		"🌦️ Light rain — 95% humidity, feels like Stormwind on a Monday",
 		"🌦️ Drizzle — coffee consumption slightly increased ☕️",
 		"🌦️ Light rain — umbrella budget exceeded, using cat 🐱 instead",
+		"🌦️ Drizzle — even the Riddler’s clues are getting waterlogged",
 	},
 	"rain": {
 		"🌧️ Rain — rm -rf /going-outside --force",
@@ -61,13 +64,16 @@ var messages = map[string][]string{
 		"🌧️ It's raining — docker run --rm coffee:latest --volume desk",
 		"🌧️ Rain — my plants are now fully upgraded to version 2.0 🌱",
 		"🌧️ Rain — patch notes: sky now includes puddles 1.14.2",
+		"🌧️ Rain — classic Gotham City weather, Penguin approves 🐧☂️",
+		"🌧️ It’s raining — the Batmobile just hydroplaned down my street",
 	},
 	"heavy_rain": {
 		"🌧️ Heavy rain — kubectl drain outside --ignore-daemonsets",
 		"🌧️ Downpour — Doomhammer is literally raining on my parade",
 		"🌧️ Downpour — even the Murlocs are sheltering, Mrgglll",
 		"🌧️ Heavy rain — just found a submarine in my driveway 🛶",
-	},
+		"🌧️ Downpour — Commissioner Gordon is not sending the signal tonight",
+		"🌧️ Heavy rain — Gotham flooding, Penguin’s umbrella startup is thriving",	},
 	"snow": {
 		"❄️ Snow — Icecrown Citadel has spawned in my street",
 		"❄️ Snowing — kubectl taint nodes/* weather=blizzard:NoSchedule",
@@ -75,6 +81,8 @@ var messages = map[string][]string{
 		"❄️ Snowing — apt freeze universe, confirm? [y/N]",
 		"❄️ Snow — penguins deployed to street, mission ongoing 🐧",
 		"❄️ Snow — snowman startup in progress, awaiting funding ☃️",
+		"❄️ Snowing — Mr. Freeze’s escape went further than expected",
+		"❄️ Snow — Mr. Freeze says: \"Gotham shall be my ice box\" — seems legit",
 	},
 	"clear": {
 		"☀️ Sunny — git push origin good-vibes",
@@ -82,6 +90,8 @@ var messages = map[string][]string{
 		"☀️ Nice weather — sky has been in Running state all morning",
 		"☀️ Sunny — sudo chmod 777 /patio, finally",
 		"☀️ Clear — Sun applied for overclocking permit ☀️⚡",
+		"☀️ Sunny — even Gotham gets one good day a year, today is it",
+		"☀️ Clear sky — Alfred opened the manor windows for the first time in months",
 	},
 	"clear_hot": {
 		"🥵 %d°C — thermal throttling IRL, like a node with no CPU limits",
@@ -89,6 +99,8 @@ var messages = map[string][]string{
 		"🥵 %d°C — even the Firelands think it's a bit much",
 		"🥵 %d°C — brain melting, PRs now written in smoke signals",
 		"🥵 %d°C — frying eggs on my laptop is now officially supported 🍳💻",
+		"🥵 %d°C — Bruce Wayne’s Batsuit has no AC, respect the dedication",
+		"🥵 %d°C — even Bane took his mask off, that’s how hot it is",
 	},
 	"clear_cold": {
 		"🥶 %d°C — kubectl get warmth — No resources found",
@@ -96,6 +108,8 @@ var messages = map[string][]string{
 		"🥶 %d°C — systemctl status heating — ● dead (failed)",
 		"🥶 %d°C — brain frozen, sending PRs in dreams only",
 		"🥶 %d°C — socks deployed, still failing to meet minimum temp requirements 🧦",
+		"🥶 %d°C — Mr. Freeze is winning, send help and hot cocoa",
+		"🥶 %d°C — the Batcave is warmer than outside, I'm living the dream",
 	},
 	"clouds": {
 		"☁️ Cloudy — sky is migrating to a multi-cloud architecture",
@@ -103,24 +117,32 @@ var messages = map[string][]string{
 		"☁️ Cloudy — even Sylvanas doesn't know if it'll clear up",
 		"🌤️ Cloudy — Cloudflare put the sun behind a WAF again",
 		"☁️ Overcast — developers confused why sky status is Warning",
+		"☁️ Cloudy — perfect Bat-Signal conditions, just saying 🦇",
+		"🌥️ Overcast — Gotham standard issue, nothing to see here",
 	},
 	"fog": {
 		"🌫️ Foggy — zero visibility, just like my Kubernetes docs",
 		"🌫️ Misty — The Mists of Pandaria have arrived",
 		"🌫️ Foggy — dmesg: WARNING: zero visibility ahead, check your lore",
 		"🌫️ Foggy — guess where I am? Spoiler: it’s the kitchen 👀",
+		"🌫️ Fog — Scarecrow deployed fear toxin, or just Tuesday in Gotham",
+		"🌫️ Misty — Batman is out there somewhere, watching, judging my PR",
 	},
 	"wind": {
 		"💨 Windy — gusts detected, replicaset /hairstyle scaled down to 0",
 		"💨 Wind — Sylvanas has set things on fire for less",
 		"💨 Gusts — the wind has been DDoSing my hood since this morning",
 		"💨 Wind — my coffee just did a barrel roll ☕️🎢",
+		"💨 Windy — Batman’s cape is going to be a liability today",
+		"💨 Gusts — the Batwing had to abort landing, too much crosswind",
 	},
 	"unknown": {
 		"🌡️ Unknown weather — 404 Weather Not Found, lore is unclear",
 		"🤔 Undefined atmospheric behavior — kubectl describe sky timed out",
 		"❓ Weather state unknown — like the release date of the next WoW patch",
 		"❓ Unknown — have you tried turning it off and on again?",
+		"❓ Unknown weather — the Riddler encrypted the forecast again",
+		"🌡️ Undefined — even Oracle can’t pull the weather data right now",
 	},
 }
 
@@ -134,6 +156,9 @@ var nightMessages = []string{
 	"😴 In dreams — raiding Icecrown on a different server",
 	"💤 Night mode — do not disturb, or face 1d20 grumpiness",
 	"🌙 Sleep.sh — estimated wake time: 06:00, no SLA guaranteed",
+	"🦇 Night shift — unlike Batman, I actually sleep",
+	"💤 Offline — Bruce Wayne is also sleeping, probably",
+	"🌙 ZZZ — the Batcave is dark and so is my screen",
 }
 
 func randomStatus(key string) string {
