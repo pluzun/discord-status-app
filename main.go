@@ -27,11 +27,13 @@ type GeoResponse struct {
 // WeatherResponse est la réponse de l'API météo Open-Meteo.
 type WeatherResponse struct {
 	Current struct {
-		Temperature float64 `json:"temperature_2m"`
-		Humidity    int     `json:"relative_humidity_2m"`
-		WindSpeed   float64 `json:"wind_speed_10m"`
-		WeatherCode int     `json:"weather_code"`
-		Visibility  float64 `json:"visibility"`
+		Temperature   float64 `json:"temperature_2m"`
+		Humidity      int     `json:"relative_humidity_2m"`
+		WindSpeed     float64 `json:"wind_speed_10m"`
+		WeatherCode   int     `json:"weather_code"`
+		Visibility    float64 `json:"visibility"`
+		Snowfall      float64 `json:"snowfall"`      // cm/h
+		Precipitation float64 `json:"precipitation"` // mm/h
 	} `json:"current"`
 	CityName string // rempli après le géocodage
 }
@@ -198,7 +200,7 @@ func geocodeCity(city string) (lat, lon float64, name string, err error) {
 func fetchWeather(lat, lon float64, cityName string) (*WeatherResponse, error) {
 	endpoint := fmt.Sprintf(
 		"https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f"+
-			"&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,visibility"+
+			"&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code,visibility,snowfall,precipitation"+
 			"&wind_speed_unit=ms",
 		lat, lon,
 	)
@@ -267,6 +269,15 @@ func conditionKey(wmoCode, temp int, wind float64) string {
 func buildStatus(w *WeatherResponse) string {
 	temp := int(w.Current.Temperature)
 	wind := w.Current.WindSpeed
+
+	// snowfall > 0 est la source de vérité : le modèle produit de la neige
+	// même quand le WMO code indique "clear" ou "clouds" (station en désaccord).
+	if w.Current.Snowfall > 0 {
+		log.Printf("❄️  Override: snowfall=%.2f cm/h, WMO=%d — forcé à snow",
+			w.Current.Snowfall, w.Current.WeatherCode)
+		return randomStatus("snow")
+	}
+
 	key := conditionKey(w.Current.WeatherCode, temp, wind)
 	if key == "clear_hot" || key == "clear_cold" {
 		return fmt.Sprintf(randomStatus(key), temp)
