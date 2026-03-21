@@ -392,17 +392,20 @@ func main() {
 	// Première mise à jour immédiate au démarrage
 	doUpdate()
 
-	ticker := time.NewTicker(1 * time.Hour)
-	defer ticker.Stop()
-
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	for {
+		// Calcule le temps restant jusqu'au prochain top d'heure pile (XX:00:00)
+		now := time.Now()
+		next := now.Truncate(time.Hour).Add(time.Hour)
+		timer := time.NewTimer(time.Until(next))
+
 		select {
-		case <-ticker.C:
+		case <-timer.C:
 			doUpdate()
 		case <-quit:
+			timer.Stop()
 			log.Println("👋  Arrêt propre — status météo désactivé")
 			return
 		}
