@@ -174,12 +174,16 @@ func randomStatus(key string) string {
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
 // geocodeCity résoud un nom de ville en coordonnées via Open-Meteo.
-func geocodeCity(city string) (lat, lon float64, name string, err error) {
-	endpoint := fmt.Sprintf(
+// countryCode est optionnel (ex: "CA", "FR") — laissez vide pour ne pas filtrer.
+func geocodeCity(city, countryCode string) (lat, lon float64, name string, err error) {
+	q := fmt.Sprintf(
 		"https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=fr",
 		url.QueryEscape(city),
 	)
-	resp, err := httpClient.Get(endpoint)
+	if countryCode != "" {
+		q += "&country_code=" + url.QueryEscape(countryCode)
+	}
+	resp, err := httpClient.Get(q)
 	if err != nil {
 		return 0, 0, "", fmt.Errorf("géocodage: %w", err)
 	}
@@ -333,6 +337,7 @@ func setPersonalStatus(token, statusText string) error {
 func main() {
 	token := os.Getenv("DISCORD_TOKEN")
 	city := os.Getenv("CITY")
+	countryCode := os.Getenv("COUNTRY_CODE")
 
 	if token == "" {
 		log.Fatal("❌  DISCORD_TOKEN manquant — voir .env.example")
@@ -343,7 +348,7 @@ func main() {
 	}
 
 	// Résolution des coordonnées au démarrage (pas besoin de refaire à chaque cycle)
-	lat, lon, cityName, err := geocodeCity(city)
+	lat, lon, cityName, err := geocodeCity(city, countryCode)
 	if err != nil {
 		log.Fatalf("❌  Géocodage échoué: %v", err)
 	}
